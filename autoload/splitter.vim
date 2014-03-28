@@ -1,3 +1,8 @@
+if exists("g:loaded_splitter") || v:version < 700
+    finish
+endif
+let g:loaded_splitter = 1
+
 function! splitter#TmuxSplitHere(vertical, size)
     let l:cmd = "tmux split-window"
     " if tmux -V > 1.4
