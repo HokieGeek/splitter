@@ -5,9 +5,12 @@ let g:loaded_splitter = 1
 
 function! splitter#TmuxSplitHere(vertical, size)
     let l:cmd = "tmux split-window"
-    " if tmux -V > 1.4
+    if !exists("g:splitter_tmux_version")
+        let g:splitter_tmux_version = str2nr(system("tmux -V  | awk '{ print $2 }' | sed 's/[a-z]//'"))
+    endif
+    if g:splitter_tmux_version > 1.4
         let l:cmd .= " -c ".expand("%:p:h")
-    " endif
+    endif
     if (a:vertical == 1)
         let l:cmd .= " -h"
     endif
