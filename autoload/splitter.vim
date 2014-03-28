@@ -46,37 +46,47 @@ endfunction
 " }}}
 
 " Execute command {{{
-function! splitter#LaunchCommandInTmuxWindow(loc, cmd)
-    let l:title = fnamemodify(split(a:cmd)[0], ":t")
-    let l:cmd = "tmux new-window -d -n 'Running ".l:title." ...' \"cd ".a:loc.";"
-    let l:cmd .= a:cmd." | tee ".b:splitter_command_log."\""
-    call system(l:cmd)
+function! splitter#OpenLog()
+    if exists("b:splitter_command_log")
+        let l:log = b:splitter_command_log
+        new
+        execute "r ".l:log
+        0d_
+        set buftype=nofile bufhidden=wipe nomodifiable
+    else
+        echohl WarningMsg
+        echomsg "No log found. Have you run a command?"
+        echohl None
+    endif
 endfunction
-function! splitter#LaunchCommandInTmuxSplit(loc, cmd)
-    let l:cmd = "tmux split-window -d -l ".g:splitter_split_window_size." \"cd ".a:loc.";"
+
+function! splitter#LaunchCommandInTmux(window, loc, cmd)
+    if a:window
+        let l:title = fnamemodify(split(a:cmd)[0], ":t")
+        let l:cmd = "tmux new-window -d -n 'Running ".l:title." ...' \"cd ".a:loc.";"
+    else
+        let l:cmd = "tmux split-window -d -l ".g:splitter_split_window_size." \"cd ".a:loc.";"
+    endif
     let l:cmd .= a:cmd." | tee ".b:splitter_command_log."\""
     call system(l:cmd)
 endfunction
 
-function! splitter#LaunchCommandInScreenWindow(loc, cmd)
-    let l:title = fnamemodify(split(a:cmd)[0], ":t")
-
+function! splitter#LaunchCommandInScreen(window, loc, cmd)
     let l:screen_cmd = "screen -dr ".expand("%STY")." -X"
-    let l:cmd = l:screen_cmd." screen -fn -t 'Running ".l:title." ...' \"cd ".a:loc.";"
-    let l:cmd .= a:cmd." | tee ".b:splitter_command_log."\""
-    let l:cmd .= " && ".l:screen_cmd." other"
-    call system(l:cmd)
-endfunction
-function! splitter#LaunchCommandInScreenSplit(loc, cmd)
-    let l:screen_cmd = "screen -dr ".expand("%STY")." -X"
+    if a:window
+        let l:title = fnamemodify(split(a:cmd)[0], ":t")
 
-    let l:cmd = l:screen_cmd." split"
-    let l:cmd .= " && ".l:screen_cmd." focus"
-    let l:cmd .= " && ".l:screen_cmd." resize ".g:splitter_split_window_size
-    " let l:cmd .= " && ".l:screen_cmd." chdir ".expand("%:p:h")
-    let l:cmd .= " && ".l:screen_cmd." screen"
-    let l:cmd .= " && ".l:screen_cmd." \"cd ".a:loc.";"
-    let l:cmd .= a:cmd." | tee ".b:splitter_command_log."\""
+        let l:cmd = l:screen_cmd." screen -fn -t 'Running ".l:title." ...' \"cd ".a:loc.";"
+        let l:cmd .= a:cmd." | tee ".b:splitter_command_log."\""
+        let l:cmd .= " && ".l:screen_cmd." other"
+    else
+        let l:cmd = l:screen_cmd." split"
+        let l:cmd .= " && ".l:screen_cmd." focus"
+        let l:cmd .= " && ".l:screen_cmd." resize ".g:splitter_split_window_size
+        let l:cmd .= " && ".l:screen_cmd." screen"
+        let l:cmd .= " && ".l:screen_cmd." \"cd ".a:loc.";"
+        let l:cmd .= a:cmd." | tee ".b:splitter_command_log."\""
+    endif
     call system(l:cmd)
 endfunction
 
@@ -109,7 +119,6 @@ endfunction
 
 function! splitter#LaunchCommand(loc, cmd, bg)
     let b:splitter_command_log = tempname()
-    execute " command! -buffer Log :new | r ".b:splitter_command_log." | 0d_"
 
     if strlen(a:cmd) > 0
         let l:cmd = a:cmd
@@ -118,17 +127,9 @@ function! splitter#LaunchCommand(loc, cmd, bg)
     endif
 
     if exists("$TMUX")
-        if a:bg
-            call splitter#LaunchCommandInTmuxWindow(a:loc, l:cmd)
-        else
-            call splitter#LaunchCommandInTmuxSplit(a:loc, l:cmd)
-        endif
+        call splitter#LaunchCommandInTmux(a:bg, a:loc, l:cmd)
     elseif exists("$TERM") && expand("$TERM") == "screen"
-        if a:bg
-            call splitter#LaunchCommandInScreenWindow(a:loc, l:cmd)
-        else
-            call splitter#LaunchCommandInScreenSplit(a:loc, l:cmd)
-        endif
+        call splitter#LaunchCommandInScreen(a:bg, a:loc, l:cmd)
     else
         call splitter#LaunchCommandHeadless(a:loc, l:cmd)
     endif
@@ -137,8 +138,9 @@ endfunction
 function! splitter#LaunchCommandHere(cmd, bg)
     call splitter#LaunchCommand(getcwd(), a:cmd, a:bg)
 endfunction
+" }}}
 
-function! splitter#CommandHandler(bg, here, ...)
+function! splitter#RunCommandHandler(bg, here, ...)
     let l:cmd = ""
     let l:loc = getcwd()
 
@@ -155,4 +157,3 @@ function! splitter#CommandHandler(bg, here, ...)
 
     call splitter#LaunchCommand(l:loc, l:cmd, a:bg)
 endfunction
-" }}}
