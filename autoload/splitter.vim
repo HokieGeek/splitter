@@ -80,6 +80,29 @@ function! splitter#LaunchCommandInScreenSplit(loc, cmd)
     call system(l:cmd)
 endfunction
 
+function! splitter#LaunchCommandInNewTerminal(loc, cmd)
+    " Determine the terminal to use
+    if executable("urxvtc")
+        let l:terminal = "urxvtc -e"
+    elseif executable("gnome-terminal")
+        let l:terminal = "gnome-terminal -e"
+    endif
+
+    " Build the file and launch the terminal
+    if exists("l:terminal")
+        " Build the file
+        let l:cmd_file = tempname()
+        let l:cmd_file_contents = []
+        call add(l:cmd_file_contents, "#!/bin/sh")
+        call add(l:cmd_file_contents, "cd ".a:loc)
+        call add(l:cmd_file_contents, a:cmd)
+        call writefile(l:cmd_file_contents, l:cmd_file)
+        call system("chmod +x ".l:cmd_file)
+
+        call system(l:terminal." ".l:cmd_file)
+    endif
+endfunction
+
 function! splitter#LaunchCommandHeadless(loc, cmd)
     call system("cd ".a:loc."; ".a:cmd." | tee ".b:splitter_command_log."\"")
 endfunction
@@ -119,13 +142,13 @@ function! splitter#CommandHandler(bg, here, ...)
     let l:cmd = ""
     let l:loc = getcwd()
 
-    if a:0 > 0 && a:0 <= 2
+    if a:0 > 0
         if a:here
-            let l:cmd = a:1
+            let l:cmd = join(a:000, ' ')
         else
             let l:loc = a:1
-            if a:0 == 2
-                let l:cmd = a:2
+            if a:0 >= 2
+                let l:cmd = join(a:000[1:], ' ')
             endif
         endif
     endif
