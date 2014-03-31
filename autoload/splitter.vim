@@ -46,6 +46,25 @@ endfunction
 " }}}
 
 " Execute command {{{
+function! splitter#GetConfigValue(cfg, prop)
+    if has_key(a:cfg, a:prop)
+        return a:cfg[a:prop]
+    else
+        if a:prop ==# "split"
+            return 1
+        elseif a:prop ==# "split_orientation"
+            return "horizontal"
+        elseif a:prop ==# "split_size"
+            if a:cfg["split_orientation"] ==? "vertical"
+                return g:splitter_split_window_size_vertical
+            else
+                return g:splitter_split_window_size_horizontal
+            endif
+        elseif a:prop ==# "new_terminal"
+            return 1
+        endif
+    endif
+endfunction
 function! splitter#OpenLog()
     if exists("b:splitter_command_log")
         let l:log = b:splitter_command_log
@@ -60,29 +79,41 @@ function! splitter#OpenLog()
     endif
 endfunction
 
-function! splitter#LaunchCommandInTmux(window, loc, cmd)
-    if a:window
+function! splitter#LaunchCommandInTmux(loc, cmd, cfg)
+    " if splitter#GetConfigValue(a:cfg, "persistent")
+    if splitter#GetConfigValue(a:cfg, "split")
         let l:title = fnamemodify(split(a:cmd)[0], ":t")
         let l:cmd = "tmux new-window -d -n 'Running ".l:title." ...' \"cd ".a:loc.";"
     else
-        let l:cmd = "tmux split-window -d -l ".g:splitter_split_window_size." \"cd ".a:loc.";"
+        let l:orientation = (splitter#GetConfigValue(a:cfg, "split_orientation") ==? "vertical" ? "-h" : "")
+        let l:split_size = splitter#GetConfigValue(a:cfg, "split_size")
+        if l:split_size > 0
+            let l:split_size = "-l ".l:split_size
+        else
+            let l:split_size = ""
+        endif
+        let l:cmd = "tmux split-window ".l:orientation." -d ".l:split_size." \"cd ".a:loc.";"
     endif
+    " endif
     let l:cmd .= a:cmd." | tee ".b:splitter_command_log."\""
+    " echomsg l:cmd
     call system(l:cmd)
 endfunction
 
-function! splitter#LaunchCommandInScreen(window, loc, cmd)
+function! splitter#LaunchCommandInScreen(loc, cmd, cfg)
     let l:screen_cmd = "screen -dr ".expand("%STY")." -X"
-    if a:window
+    if splitter#GetConfigValue(a:cfg, "split")
         let l:title = fnamemodify(split(a:cmd)[0], ":t")
 
         let l:cmd = l:screen_cmd." screen -fn -t 'Running ".l:title." ...' \"cd ".a:loc.";"
         let l:cmd .= a:cmd." | tee ".b:splitter_command_log."\""
         let l:cmd .= " && ".l:screen_cmd." other"
     else
-        let l:cmd = l:screen_cmd." split"
+        let l:orientation = (splitter#GetConfigValue(a:cfg, "split_orientation") ==? "vertical" ? "-v" : "")
+        let l:split_size = splitter#GetConfigValue(a:cfg, "split_size")
+        let l:cmd = l:screen_cmd." split ".l:orientation
         let l:cmd .= " && ".l:screen_cmd." focus"
-        let l:cmd .= " && ".l:screen_cmd." resize ".g:splitter_split_window_size
+        let l:cmd .= " && ".l:screen_cmd." resize ".l:split_size
         let l:cmd .= " && ".l:screen_cmd." screen"
         let l:cmd .= " && ".l:screen_cmd." \"cd ".a:loc.";"
         let l:cmd .= a:cmd." | tee ".b:splitter_command_log."\""
@@ -96,6 +127,8 @@ function! splitter#LaunchCommandInNewTerminal(loc, cmd)
         let l:terminal = "urxvtc -e"
     elseif executable("gnome-terminal")
         let l:terminal = "gnome-terminal -e"
+    elseif has("win32unix")
+        let l:terminal = "/usr/bin/mintty.exe -e"
     endif
 
     " Build the file and launch the terminal
@@ -105,7 +138,7 @@ function! splitter#LaunchCommandInNewTerminal(loc, cmd)
         let l:cmd_file_contents = []
         call add(l:cmd_file_contents, "#!/bin/sh")
         call add(l:cmd_file_contents, "cd ".a:loc)
-        call add(l:cmd_file_contents, a:cmd)
+        call add(l:cmd_file_contents, a:cmd." | tee ".b:splitter_command_log)
         call writefile(l:cmd_file_contents, l:cmd_file)
         call system("chmod +x ".l:cmd_file)
 
@@ -117,7 +150,7 @@ function! splitter#LaunchCommandHeadless(loc, cmd)
     call system("cd ".a:loc."; ".a:cmd." | tee ".b:splitter_command_log."\"")
 endfunction
 
-function! splitter#LaunchCommand(loc, cmd, bg)
+function! splitter#LaunchCommand(loc, cmd, cfg)
     let b:splitter_command_log = tempname()
 
     if strlen(a:cmd) > 0
@@ -126,17 +159,21 @@ function! splitter#LaunchCommand(loc, cmd, bg)
         let l:cmd = expand("%:p")
     endif
 
-    if exists("$TMUX")
-        call splitter#LaunchCommandInTmux(a:bg, a:loc, l:cmd)
-    elseif exists("$TERM") && expand("$TERM") == "screen"
-        call splitter#LaunchCommandInScreen(a:bg, a:loc, l:cmd)
+    if splitter#GetConfigValue(a:cfg, "new_terminal")
+        if exists("$TMUX")
+            call splitter#LaunchCommandInTmux(a:loc, l:cmd, a:cfg)
+        elseif exists("$TERM") && expand("$TERM") == "screen"
+            call splitter#LaunchCommandInScreen(a:loc, l:cmd, a:cfg)
+        else
+            call splitter#LaunchCommandHeadless(a:loc, l:cmd)
+        endif
     else
-        call splitter#LaunchCommandHeadless(a:loc, l:cmd)
+        call splitter#LaunchCommandInNewTerminal(a:loc, l:cmd)
     endif
 endfunction
 
-function! splitter#LaunchCommandHere(cmd, bg)
-    call splitter#LaunchCommand(getcwd(), a:cmd, a:bg)
+function! splitter#LaunchCommandHere(cmd, cfg)
+    call splitter#LaunchCommand(getcwd(), a:cmd, a:cfg)
 endfunction
 " }}}
 
@@ -155,5 +192,5 @@ function! splitter#RunCommandHandler(bg, here, ...)
         endif
     endif
 
-    call splitter#LaunchCommand(l:loc, l:cmd, a:bg)
+    call splitter#LaunchCommand(l:loc, l:cmd, {'split':a:bg})
 endfunction
