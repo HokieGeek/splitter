@@ -13,7 +13,7 @@ endif
 command! -count Split :call splitter#SplitHere(0, <count>)
 command! -count Vsplit :call splitter#SplitHere(1, <count>)
 
-command! -bang -nargs=* Run :call splitter#RunCommandHandler(<bang>0, 1, <f-args>)
-command! -bang -nargs=* RunIn :call splitter#RunCommandHandler(<bang>0, 0, <f-args>)
+command! -bar -bang -nargs=* Run :call splitter#RunCommandHandler(<bang>0, 1, <f-args>)
+command! -bar -bang -nargs=* RunIn :call splitter#RunCommandHandler(<bang>0, 0, <f-args>)
 
-command! Log :call splitter#OpenLog()
+command! -bar Log :call splitter#OpenLog()
