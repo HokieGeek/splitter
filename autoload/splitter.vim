@@ -50,6 +50,7 @@ function! splitter#OpenLog()
     if exists("b:splitter_command_log")
         let l:log = b:splitter_command_log
         new
+        set modifiable
         execute "r ".l:log
         0d_
         set buftype=nofile bufhidden=wipe nomodifiable
