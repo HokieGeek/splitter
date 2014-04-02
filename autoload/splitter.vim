@@ -181,5 +181,5 @@ function! splitter#RunCommandHandler(bg, here, ...)
         endif
     endif
 
-    call splitter#LaunchCommand(l:loc, l:cmd, (a:bg ? 'window' : 'split_vertical'))
+    call splitter#LaunchCommand(l:loc, l:cmd, (a:bg ? 'window' : 'split_horizontal'))
 endfunction
