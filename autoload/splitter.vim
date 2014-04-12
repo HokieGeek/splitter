@@ -60,7 +60,14 @@ function! splitter#OpenLog()
         echohl None
     endif
 endfunction
-
+function! splitter#ExecCmd(cmd)
+    if strlen(a:cmd) > 0
+        let l:pipe = (&shell =~? "csh" ? "|&" : "2>&1 |")
+        let l:cmd = a:cmd." ".l:pipe." tee ".b:splitter_command_log."\""
+        " echomsg l:cmd
+        call system(l:cmd)
+    endif
+endfunction
 function! splitter#LaunchCommandInTmux(loc, cmd, cfg)
     if a:cfg =~? 'split'
         let l:orientation = (a:cfg ==? "split_vertical") ? "-h" : ""
@@ -76,9 +83,8 @@ function! splitter#LaunchCommandInTmux(loc, cmd, cfg)
     endif
 
     if exists("l:cmd")
-        let l:cmd .= a:cmd." | tee ".b:splitter_command_log."\""
-        " echomsg l:cmd
-        call system(l:cmd)
+        let l:cmd .= a:cmd
+        call splitter#ExecCmd(l:cmd)
     endif
 endfunction
 
@@ -106,7 +112,7 @@ function! splitter#LaunchCommandInScreen(loc, cmd, cfg)
     endif
 
     if exists("l:cmd")
-        call system(l:cmd)
+        call splitter#ExecCmd(l:cmd)
     endif
 endfunction
 
@@ -127,7 +133,8 @@ function! splitter#LaunchCommandInNewTerminal(loc, cmd)
         let l:cmd_file_contents = []
         call add(l:cmd_file_contents, "#!/bin/sh")
         call add(l:cmd_file_contents, "cd ".a:loc)
-        call add(l:cmd_file_contents, a:cmd." | tee ".b:splitter_command_log)
+        let l:pipe = (&shell =~? "csh" ? "|&" : "2>&1 |")
+        call add(l:cmd_file_contents, a:cmd." ".l:pipe." tee ".b:splitter_command_log)
         call writefile(l:cmd_file_contents, l:cmd_file)
         call system("chmod +x ".l:cmd_file)
 
