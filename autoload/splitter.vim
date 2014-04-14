@@ -89,7 +89,7 @@ function! splitter#LaunchCommandInTmux(loc, cmd, cfg)
 endfunction
 
 function! splitter#LaunchCommandInScreen(loc, cmd, cfg)
-    let l:screen_cmd = "screen -dr ".expand("%STY")." -X"
+    let l:screen_cmd = "screen -dr ".expand("$STY")." -X"
     if a:cfg =~? 'split'
         let l:orientation = (a:cfg ==? "split_vertical") ? "-v" : ""
         if a:cfg ==? "split_horizontal"
