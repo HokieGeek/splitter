@@ -138,12 +138,12 @@ function! splitter#LaunchCommandInNewTerminal(loc, cmd)
         call writefile(l:cmd_file_contents, l:cmd_file)
         call system("chmod +x ".l:cmd_file)
 
-        call system(l:terminal." ".l:cmd_file)
+        call system(l:terminal." ".l:cmd_file."&")
     endif
 endfunction
 
 function! splitter#LaunchCommandHeadless(loc, cmd)
-    call system("cd ".a:loc."; ".a:cmd." | tee ".b:splitter_command_log."\"")
+    call splitter#ExecCmd("cd ".a:loc."; ".a:cmd)
 endfunction
 
 function! splitter#LaunchCommand(loc, cmd, cfg)
